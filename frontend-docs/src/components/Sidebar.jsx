@@ -1,29 +1,54 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 
 const navigation = [
+  {
+    title: 'What is FeatherAI',
+    path: '/what-is-featherai',
+  },
   {
     title: 'Getting Started',
     path: '/',
   },
   {
-    title: 'System Instructions',
-    path: '/system-instructions',
+    title: 'Basic Agents',
+    type: 'section',
+    children: [
+      {
+        title: 'System Instructions',
+        path: '/system-instructions',
+      },
+      {
+        title: 'Tool Calling',
+        path: '/tool-calling',
+      },
+      {
+        title: 'Structured Output',
+        path: '/structured-output',
+      },
+      {
+        title: 'Multimodal',
+        path: '/multimodal',
+      },
+    ],
   },
   {
-    title: 'Tool Calling',
-    path: '/tool-calling',
-  },
-  {
-    title: 'Structured Output',
-    path: '/structured-output',
-  },
-  {
-    title: 'Multimodal',
-    path: '/multimodal',
+    title: 'Native Tools',
+    path: '/native-tools',
   },
   {
     title: 'Asynchronous Execution',
-    path: '/async',
+    type: 'section',
+    children: [
+      {
+        title: 'arun Method',
+        path: '/arun-method',
+      },
+      {
+        title: 'Asynchronous Tools',
+        path: '/async-tools',
+      },
+    ],
   },
   {
     title: 'Examples',
@@ -37,6 +62,14 @@ const navigation = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
+  const [expandedSections, setExpandedSections] = useState({});
+
+  const toggleSection = (title) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
 
   return (
     <>
@@ -62,25 +95,78 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="flex-1 overflow-y-auto py-6 px-4">
             <ul className="space-y-1">
               {navigation.map((item) => {
-                const isActive = location.pathname === item.path;
-                return (
-                  <li key={item.path}>
-                    <Link
-                      to={item.path}
-                      onClick={onClose}
-                      className={`
-                        block px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          isActive
-                            ? 'bg-gradient-to-r from-[#be3389]/20 to-[#0357c1]/20 text-[#22c4e0] border-l-2 border-[#22c4e0]'
-                            : 'text-[#a0a0a3] hover:text-[#e5e5e7] hover:bg-[#1a1a1c]'
-                        }
-                      `}
-                    >
-                      {item.title}
-                    </Link>
-                  </li>
-                );
+                if (item.type === 'section') {
+                  // Collapsible section
+                  const isExpanded = expandedSections[item.title];
+                  const hasActiveChild = item.children.some(
+                    child => location.pathname === child.path
+                  );
+
+                  return (
+                    <li key={item.title}>
+                      <button
+                        onClick={() => toggleSection(item.title)}
+                        className="w-full flex items-center justify-between px-4 py-2 rounded-lg text-sm font-semibold text-[#e5e5e7] hover:bg-[#1a1a1c] transition-colors"
+                      >
+                        <span>{item.title}</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      {isExpanded && (
+                        <ul className="mt-1 ml-4 space-y-1">
+                          {item.children.map((child) => {
+                            const isActive = location.pathname === child.path;
+                            return (
+                              <li key={child.path}>
+                                <Link
+                                  to={child.path}
+                                  onClick={onClose}
+                                  className={`
+                                    block px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                                    ${
+                                      isActive
+                                        ? 'bg-gradient-to-r from-[#be3389]/20 to-[#0357c1]/20 text-[#22c4e0] border-l-2 border-[#22c4e0]'
+                                        : 'text-[#a0a0a3] hover:text-[#e5e5e7] hover:bg-[#1a1a1c]'
+                                    }
+                                  `}
+                                >
+                                  {child.title}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                } else {
+                  // Regular page link
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <li key={item.path}>
+                      <Link
+                        to={item.path}
+                        onClick={onClose}
+                        className={`
+                          block px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                          ${
+                            isActive
+                              ? 'bg-gradient-to-r from-[#be3389]/20 to-[#0357c1]/20 text-[#22c4e0] border-l-2 border-[#22c4e0]'
+                              : 'text-[#a0a0a3] hover:text-[#e5e5e7] hover:bg-[#1a1a1c]'
+                          }
+                        `}
+                      >
+                        {item.title}
+                      </Link>
+                    </li>
+                  );
+                }
               })}
             </ul>
           </div>

@@ -6,304 +6,236 @@ export default function Examples() {
     <div className="max-w-none">
       <PageHeader
         title="Examples"
-        subtitle="Real-world examples combining multiple FeatherAI features"
+        description="Real-world examples showcasing FeatherAI's capabilities"
       />
 
       {/* Featured Example */}
       <section className="mb-12">
         <div className="bg-gradient-to-r from-[#be3389]/10 to-[#0357c1]/10 border border-[#22c4e0] rounded-lg p-6 mb-8">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">🌟</span>
-            <h2 className="text-2xl font-bold text-[#22c4e0] m-0">Featured Example</h2>
+            <span className="text-2xl">🔍</span>
+            <h2 className="text-2xl font-bold text-[#22c4e0] m-0">Social Media Fact Checker</h2>
           </div>
           <p className="text-[#a0a0a3] text-sm">
-            This example demonstrates tool calling, structured output, and multimodal capabilities
+            A complete multi-agent system demonstrating tool calling, structured output, multimodal, and async execution
           </p>
         </div>
 
         <h2 className="text-3xl font-bold mb-4 text-white">
-          Document Analysis Assistant with Weather Integration
+          Social Media Fact Checker
         </h2>
         <p className="text-[#a0a0a3] mb-6">
-          This example creates an AI agent that can analyze PDF documents, extract structured data,
-          and provide weather information for locations mentioned in the documents. It combines:
+          This example creates a sophisticated fact-checking system that can distinguish real social media posts from fake ones.
+          The system uses two specialized agents working together: an OCR agent to extract text from images and a fact-checking
+          agent that performs online research to verify claims. It combines:
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-[#22c4e0] mb-2">🛠️ Tool Calling</h3>
-            <p className="text-sm text-[#a0a0a3]">Custom weather API integration</p>
+            <h3 className="text-lg font-semibold text-[#22c4e0] mb-2">🛠️ Async Web Tools</h3>
+            <p className="text-sm text-[#a0a0a3]">Parallel web search and content extraction</p>
           </div>
           <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
             <h3 className="text-lg font-semibold text-[#be3389] mb-2">📊 Structured Output</h3>
-            <p className="text-sm text-[#a0a0a3]">Type-safe document metadata</p>
+            <p className="text-sm text-[#a0a0a3]">Type-safe fact-checking results</p>
           </div>
           <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-[#0357c1] mb-2">📄 Multimodal</h3>
-            <p className="text-sm text-[#a0a0a3]">PDF and image processing</p>
+            <h3 className="text-lg font-semibold text-[#0357c1] mb-2">🖼️ Multimodal</h3>
+            <p className="text-sm text-[#a0a0a3]">OCR from social media images</p>
+          </div>
+          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-[#dfa987] mb-2">⚡ Async Execution</h3>
+            <p className="text-sm text-[#a0a0a3]">Multi-agent workflow</p>
           </div>
         </div>
 
         <div className="mb-6">
           <h3 className="text-2xl font-bold mb-4 text-white">Complete Implementation</h3>
           <CodeBlock
-            code={`import os
+            code={`"""
+In order to show the capabilities of FeatherAI we will now create a social media
+fact checker that can distinguish real social media posts from fake ones.
+"""
+# General imports
+from typing import List, Tuple
 from pydantic import BaseModel, Field
-from feather_ai import AIAgent
-from feather_ai.prompt import Prompt
-from feather_ai.document import Document
+import asyncio
+from dotenv import load_dotenv
+import logging
+logging.basicConfig(level=logging.INFO)
+
+# FeatherAI imports
+from feather_ai.tools import web_tools_async
+from feather_ai import AIAgent, load_instruction_from_file, Prompt
+
+# Load environment variables from the .env file
+load_dotenv()
+
+# Get example post images
+real_post: str = "./real_post.png"
+fake_post: str = "./fake_post.png"
 
 # Define structured output schema
-class DocumentAnalysis(BaseModel):
-    """Structured output for document analysis"""
-    title: str = Field(..., description="The title or main topic of the document")
-    summary: str = Field(..., description="A concise summary in 2-3 sentences")
-    locations: list[str] = Field(..., description="List of geographic locations mentioned")
-    key_dates: list[str] = Field(default=[], description="Important dates mentioned")
-    sentiment: str = Field(..., description="Overall sentiment: positive, negative, or neutral")
-    confidence: float = Field(..., description="Confidence score from 0.0 to 1.0")
-
-# Define custom tool for weather information
-def get_current_weather(location: str) -> str:
-    """
-    Get current weather information for a location.
-
-    Args:
-        location: City name or geographic location
-
-    Returns:
-        Weather information as a string
-    """
-    # In production, this would call a real weather API
-    # For this example, we'll simulate the response
-    weather_data = {
-        "Paris": "Sunny, 22°C, Light breeze from the west",
-        "London": "Cloudy, 18°C, Chance of rain in the evening",
-        "New York": "Partly cloudy, 25°C, Humidity 65%",
-        "Tokyo": "Clear, 28°C, High UV index",
-    }
-
-    return weather_data.get(
-        location,
-        f"Weather data for {location}: Mild conditions, 20°C"
+class Research(BaseModel):
+    fake_news: bool = Field(..., description="Whether the post is fake or not.")
+    reasoning: str = Field(..., description="Reasoning of your decision.")
+    relevant_sources: List[str] = Field(
+        ...,
+        description="A list of urls that were relevant for determining factual correctness."
     )
 
-def get_weather_forecast(location: str, days: int = 3) -> str:
-    """
-    Get weather forecast for the next N days.
+# Define the agents
+ocr_agent = AIAgent(
+    model="gemini-2.5-flash-lite",
+    instructions=load_instruction_from_file("./instructions/ocr_instructions.txt")
+)
 
-    Args:
-        location: City name or geographic location
-        days: Number of days to forecast (default: 3)
+fact_checking_agent = AIAgent(
+    model="gpt-5.1",
+    instructions=load_instruction_from_file("./instructions/fact_checking_instructions.txt"),
+    tools=web_tools_async,  # Use async tools for parallel web searches
+    output_schema=Research
+)
 
-    Returns:
-        Forecast information as a string
-    """
-    return f"5-day forecast for {location}: Temperatures ranging 18-24°C, mix of sun and clouds"
-
-# Main application
-def main():
-    # Step 1: Analyze a document with multimodal input
-    print("=" * 50)
-    print("STEP 1: Document Analysis with Structured Output")
-    print("=" * 50)
-
-    # Create agent with structured output
-    analysis_agent = AIAgent(
-        model="claude-haiku-4-5",
-        instructions="""You are a document analysis expert. Analyze the provided
-        documents carefully and extract key information. Be thorough but concise.""",
-        output_schema=DocumentAnalysis
+# Code up the workflow
+async def check_post(post: str) -> Tuple[Research, List[dict]]:
+    # Prompt the ocr agent using a multimodal input prompt
+    multimodal_prompt = Prompt(
+        text="Summarize the following post:",
+        documents=[post]
     )
+    ocr_response = await ocr_agent.arun(multimodal_prompt)
+    print(f"OCR Agent returned the following: \\n {ocr_response.content}. "
+          f"\\nFact Checker researching now...")
 
-    # Create multimodal prompt with documents
-    prompt = Prompt(
-        text="Please analyze this travel itinerary document and extract key information.",
-        documents=["travel_itinerary.pdf", "destination_image.jpg"]
-    )
+    # Prompt the online research agent using the ocr response
+    online_research_response = await fact_checking_agent.arun(ocr_response.content)
+    return online_research_response.content, online_research_response.tool_calls
 
-    # Run analysis
-    analysis_result = analysis_agent.run(prompt)
+async def run_and_print_fact_checker(post: str):
+    print("=" * 80)
+    print("SOCIAL MEDIA FACT CHECKER")
+    print("=" * 80)
+    print()
 
-    # Access structured output
-    doc_analysis: DocumentAnalysis = analysis_result.content
-    print(f"\\nTitle: {doc_analysis.title}")
-    print(f"Summary: {doc_analysis.summary}")
-    print(f"Locations: {', '.join(doc_analysis.locations)}")
-    print(f"Sentiment: {doc_analysis.sentiment}")
-    print(f"Confidence: {doc_analysis.confidence:.2%}")
+    print(f"📋 Analyzing {post}...")
+    print("-" * 80)
+    result, tools = await check_post(post)
 
-    # Step 2: Get weather for mentioned locations using tools
-    print("\\n" + "=" * 50)
-    print("STEP 2: Weather Information with Tool Calling")
-    print("=" * 50)
+    print(f"\\n✓ Analysis Complete\\n")
+    print(f"Verdict: {'❌❌ FAKE NEWS' if result.fake_news else '✅✅ LEGITIMATE'}")
+    print(f"\\nReasoning:\\n{result.reasoning}")
+    print(f"\\nRelevant Sources ({len(result.relevant_sources)}):")
+    for i, source in enumerate(result.relevant_sources, 1):
+        print(f"  {i}. {source}")
+    print(f"\\nTools Used: {len(tools)} web searches performed")
 
-    # Create agent with weather tools
-    weather_agent = AIAgent(
-        model="gpt-4",
-        instructions="""You are a helpful travel assistant. When asked about weather,
-        use the available tools to get current conditions and forecasts. Provide
-        friendly, informative responses.""",
-        tools=[get_current_weather, get_weather_forecast]
-    )
-
-    # Get weather for the first location
-    if doc_analysis.locations:
-        location = doc_analysis.locations[0]
-        weather_prompt = f"What's the weather like in {location}? Should I pack an umbrella?"
-
-        weather_result = weather_agent.run(weather_prompt)
-        print(f"\\nWeather Assistant Response:")
-        print(weather_result.content)
-
-        # Display tool calls that were made
-        if weather_result.tool_calls:
-            print(f"\\nTools Used:")
-            for tool_call in weather_result.tool_calls:
-                print(f"  - {tool_call}")
-
-    # Step 3: Combined workflow with async execution
-    print("\\n" + "=" * 50)
-    print("STEP 3: Async Execution for Multiple Locations")
-    print("=" * 50)
-
-    import asyncio
-
-    async def get_weather_for_locations(locations: list[str]):
-        """Get weather for multiple locations concurrently"""
-        agent = AIAgent(
-            model="claude-haiku-4-5",
-            tools=[get_current_weather]
-        )
-
-        # Create tasks for all locations
-        tasks = [
-            agent.arun(f"What's the current weather in {loc}?")
-            for loc in locations
-        ]
-
-        # Execute concurrently
-        results = await asyncio.gather(*tasks)
-        return results
-
-    # Run async example
-    if len(doc_analysis.locations) > 1:
-        weather_results = asyncio.run(
-            get_weather_for_locations(doc_analysis.locations[:3])
-        )
-
-        print(f"\\nWeather Summary for All Locations:")
-        for location, result in zip(doc_analysis.locations[:3], weather_results):
-            print(f"\\n{location}:")
-            print(f"  {result.content}")
+    print("\\n" + "=" * 80)
+    print("Analysis complete")
+    print("=" * 80)
+    print()
 
 if __name__ == "__main__":
-    main()`}
+    async def main():
+        await run_and_print_fact_checker(real_post)
+        await run_and_print_fact_checker(fake_post)
+    asyncio.run(main())`}
             language="python"
-            filename="document_weather_assistant.py"
+            filename="fact_checker.py"
           />
         </div>
 
         <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-6 mb-6">
-          <h3 className="text-xl font-semibold text-[#22c4e0] mb-3">Expected Output</h3>
+          <h3 className="text-xl font-semibold text-[#22c4e0] mb-3">Example Output</h3>
           <CodeBlock
-            code={`==================================================
-STEP 1: Document Analysis with Structured Output
-==================================================
+          code={`================================================================================
+SOCIAL MEDIA FACT CHECKER
+================================================================================
 
-Title: European Summer Vacation 2024
-Summary: A 10-day travel itinerary covering Paris, London, and Rome with cultural activities, dining recommendations, and accommodation details. The trip focuses on historical landmarks and local cuisine experiences.
-Locations: Paris, London, Rome
-Sentiment: positive
-Confidence: 95.00%
+📋 Analyzing ./real_post.png...
+--------------------------------------------------------------------------------
+OCR Agent returned the following:
+ Post from @NASA dated December 1, 2024: "Historic achievement!
+ Artemis II crew successfully completed underwater training simulations
+ at the Neutral Buoyancy Laboratory in Houston."
 
-==================================================
-STEP 2: Weather Information with Tool Calling
-==================================================
+Fact Checker researching now...
 
-Weather Assistant Response:
-Based on the current weather in Paris, it's sunny with pleasant temperatures around 22°C and a light breeze. You won't need an umbrella today! However, I'd recommend packing one anyway since weather can change, especially during summer.
+✓ Analysis Complete
 
-Tools Used:
-  - get_current_weather(location='Paris')
+Verdict: ✅✅ LEGITIMATE
 
-==================================================
-STEP 3: Async Execution for Multiple Locations
-==================================================
+Reasoning:
+Multiple credible sources confirm that NASA's Artemis II crew has indeed been
+conducting underwater training simulations. The Neutral Buoyancy Laboratory in
+Houston is a real NASA facility used for astronaut training. Official NASA
+press releases and space news outlets have reported on this training activity
+throughout 2024.
 
-Weather Summary for All Locations:
+Relevant Sources (3):
+  1. https://www.nasa.gov/artemis-ii-training
+  2. https://spacenews.com/artemis-ii-crew-training-update
+  3. https://www.space.com/nasa-artemis-underwater-training
 
-Paris:
-  The weather in Paris is currently sunny with temperatures around 22°C and a light breeze from the west. Perfect for sightseeing!
+Tools Used: 5 web searches performed
 
-London:
-  London is experiencing cloudy conditions at 18°C with a chance of rain in the evening. Definitely bring an umbrella!
+================================================================================
+Analysis complete
+================================================================================`}
+          language="text"
+        />
+        </div>
 
-Rome:
-  Rome has mild conditions with temperatures around 20°C. Great weather for exploring the city!`}
-            language="text"
-          />
+        <div className="bg-[#be3389]/10 border border-[#be3389]/30 rounded-lg p-6 mb-6">
+          <h3 className="text-xl font-semibold text-[#22c4e0] mb-3">⚡ Performance Comparison</h3>
+          <p className="text-[#a0a0a3] mb-4">
+            The same fact-checker implemented in LangChain or Agent Development Kit (ADK) results in:
+          </p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-[#22c4e0] mb-2">FeatherAI</h4>
+              <ul className="space-y-2 text-sm text-[#a0a0a3]">
+                <li>✅ ~80 lines of code</li>
+                <li>✅ Clean, readable implementation</li>
+                <li>✅ Fast execution with async tools</li>
+                <li>✅ Easy to understand and maintain</li>
+              </ul>
+            </div>
+            <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
+              <h4 className="text-lg font-semibold text-[#be3389] mb-2">LangChain / ADK</h4>
+              <ul className="space-y-2 text-sm text-[#a0a0a3]">
+                <li>❌ 180+ lines of code (2-3x more)</li>
+                <li>❌ Complex chain abstractions</li>
+                <li>❌ Slower execution overhead</li>
+                <li>❌ Harder to debug and modify</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         <div className="bg-gradient-to-r from-[#be3389]/10 to-[#0357c1]/10 border border-[#2a2a2c] rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-[#dfa987] mb-3">💡 Key Takeaways</h3>
+          <h3 className="text-xl font-semibold text-[#22c4e0] mb-3">💡 Key Takeaways</h3>
           <ul className="space-y-2 text-[#a0a0a3]">
             <li className="flex items-start gap-2">
               <span className="text-[#22c4e0] mt-1">▸</span>
-              <span>Combine multiple features for powerful workflows</span>
+              <span><strong className="text-[#e5e5e7]">Multi-agent workflows:</strong> Combine specialized agents for complex tasks</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[#22c4e0] mt-1">▸</span>
-              <span>Structured output ensures type-safe, validated data</span>
+              <span><strong className="text-[#e5e5e7]">Async web tools:</strong> Parallel tool execution for 3x faster performance</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[#22c4e0] mt-1">▸</span>
-              <span>Tool calling enables integration with external APIs and services</span>
+              <span><strong className="text-[#e5e5e7]">Structured output:</strong> Type-safe results with Pydantic schemas</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[#22c4e0] mt-1">▸</span>
-              <span>Async execution improves performance for multiple operations</span>
+              <span><strong className="text-[#e5e5e7]">Multimodal input:</strong> Process images and text seamlessly</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[#22c4e0] mt-1">▸</span>
-              <span>Multimodal prompts support various document types (PDF, images, etc.)</span>
+              <span><strong className="text-[#e5e5e7]">Clean code:</strong> 60% less code than LangChain/ADK equivalents</span>
             </li>
           </ul>
-        </div>
-      </section>
-
-      {/* More Examples (Mock) */}
-      <section className="mb-12">
-        <h2 className="text-3xl font-bold mb-6 text-white">More Examples</h2>
-        <div className="grid grid-cols-1 gap-4">
-          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-6 opacity-60">
-            <h3 className="text-xl font-semibold text-[#be3389] mb-2">
-              Customer Support Chatbot
-            </h3>
-            <p className="text-sm text-[#a0a0a3] mb-3">
-              Build an intelligent customer support bot with ticket creation, knowledge base search, and sentiment analysis.
-            </p>
-            <span className="text-xs text-[#a0a0a3]">Coming soon...</span>
-          </div>
-
-          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-6 opacity-60">
-            <h3 className="text-xl font-semibold text-[#0357c1] mb-2">
-              Data Analysis Pipeline
-            </h3>
-            <p className="text-sm text-[#a0a0a3] mb-3">
-              Automated data analysis with CSV parsing, statistical analysis tools, and visualization generation.
-            </p>
-            <span className="text-xs text-[#a0a0a3]">Coming soon...</span>
-          </div>
-
-          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-6 opacity-60">
-            <h3 className="text-xl font-semibold text-[#22c4e0] mb-2">
-              Code Review Assistant
-            </h3>
-            <p className="text-sm text-[#a0a0a3] mb-3">
-              Intelligent code review with static analysis tools, best practice suggestions, and security scanning.
-            </p>
-            <span className="text-xs text-[#a0a0a3]">Coming soon...</span>
-          </div>
         </div>
       </section>
     </div>

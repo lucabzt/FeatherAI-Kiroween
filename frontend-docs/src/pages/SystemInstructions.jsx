@@ -134,44 +134,6 @@ print(response.content)`}
           />
         </div>
       </section>
-
-      {/* Advanced Example */}
-      <section className="mb-12">
-        <h2 className="text-3xl font-bold mb-4 text-white">Advanced: Template-based Instructions</h2>
-        <p className="text-[#a0a0a3] mb-4">
-          You can also use template strings to create dynamic instructions:
-        </p>
-        <CodeBlock
-          code={`from feather_ai import AIAgent
-from feather_ai.utils import load_instructions_from_file
-
-# Load base instructions
-base_instructions = load_instructions_from_file("base_agent.txt")
-
-# Add dynamic context
-company_name = "Acme Corp"
-user_tier = "Premium"
-
-full_instructions = f"""
-{base_instructions}
-
-Current Context:
-- Company: {company_name}
-- User Tier: {user_tier}
-- Special Note: Premium users get priority support
-"""
-
-agent = AIAgent(
-    model="gpt-4",
-    instructions=full_instructions
-)
-
-response = agent.run("What's my current subscription status?")
-print(response.content)`}
-          language="python"
-          filename="template_instructions.py"
-        />
-      </section>
     </div>
   );
 }

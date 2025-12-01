@@ -1,7 +1,190 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { searchDocs } from '../utils/search';
+
+// SearchInput component moved outside to prevent recreation on each render
+function SearchInput({
+  searchQuery,
+  setSearchQuery,
+  handleKeyDown,
+  setShowResults,
+  showResults,
+  searchResults,
+  handleResultClick,
+  selectedIndex,
+  isMobile = false
+}) {
+  return (
+    <div className="relative w-full">
+      <input
+        id={isMobile ? 'mobile-search-input' : 'desktop-search-input'}
+        type="text"
+        placeholder="Search documentation..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
+        className="w-full px-4 py-2 pl-10 bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg text-[#e5e5e7] placeholder-[#a0a0a3] focus:outline-none focus:border-[#22c4e0] transition-colors"
+      />
+      <svg
+        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#a0a0a3]"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+
+      {/* Search Results Dropdown */}
+      {showResults && searchResults.length > 0 && (
+        <div className="absolute top-full mt-2 w-full bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg shadow-xl overflow-hidden z-50 max-h-96 overflow-y-auto">
+          {searchResults.map((result, index) => (
+            <button
+              key={result.id}
+              onClick={() => handleResultClick(result)}
+              className={`w-full px-4 py-3 text-left hover:bg-[#2a2a2c] transition-colors border-b border-[#2a2a2c] last:border-b-0 ${
+                index === selectedIndex ? 'bg-[#2a2a2c]' : ''
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-1">
+                  {result.section ? (
+                    <svg className="w-4 h-4 text-[#22c4e0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-[#22c4e0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[#e5e5e7] font-medium truncate">{result.title}</span>
+                    {result.section && (
+                      <svg className="w-3 h-3 text-[#a0a0a3] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    )}
+                  </div>
+                  {result.section && (
+                    <div className="text-sm text-[#22c4e0] truncate mb-1">{result.section}</div>
+                  )}
+                  {result.matchedKeyword && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-xs px-2 py-0.5 bg-[#22c4e0]/20 text-[#22c4e0] rounded">
+                        {result.matchedKeyword}
+                      </span>
+                      <span className="text-xs text-[#a0a0a3]">in {result.category}</span>
+                    </div>
+                  )}
+                  {!result.matchedKeyword && (
+                    <div className="text-xs text-[#a0a0a3]">{result.category}</div>
+                  )}
+                </div>
+                <div className="flex-shrink-0">
+                  <svg className="w-4 h-4 text-[#a0a0a3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* No Results */}
+      {showResults && searchQuery.length >= 2 && searchResults.length === 0 && (
+        <div className="absolute top-full mt-2 w-full bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg shadow-xl p-4 z-50">
+          <p className="text-[#a0a0a3] text-sm text-center">No results found for "{searchQuery}"</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Navbar({ onMenuToggle }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showResults, setShowResults] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const searchRef = useRef(null);
+  const navigate = useNavigate();
+
+  // Handle search input
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      const results = searchDocs(searchQuery);
+      setSearchResults(results);
+      setShowResults(true);
+      setSelectedIndex(-1);
+    } else {
+      setSearchResults([]);
+      setShowResults(false);
+    }
+  }, [searchQuery]);
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowResults(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e) => {
+    if (!showResults || searchResults.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev =>
+        prev < searchResults.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && searchResults[selectedIndex]) {
+        handleResultClick(searchResults[selectedIndex]);
+      } else if (searchResults[0]) {
+        handleResultClick(searchResults[0]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowResults(false);
+      setSelectedIndex(-1);
+    }
+  };
+
+  const handleResultClick = (result) => {
+    const fullPath = result.path + result.hash;
+    const searchTerm = result.matchedKeyword || searchQuery;
+
+    // Store search term in sessionStorage for highlighting
+    sessionStorage.setItem('searchTerm', searchTerm);
+    sessionStorage.setItem('searchHash', result.hash);
+
+    navigate(fullPath);
+    setSearchQuery('');
+    setShowResults(false);
+    setShowMobileSearch(false);
+    setSelectedIndex(-1);
+  };
+
+  const toggleMobileSearch = () => {
+    setShowMobileSearch(!showMobileSearch);
+    if (!showMobileSearch) {
+      setTimeout(() => {
+        document.getElementById('mobile-search-input')?.focus();
+      }, 100);
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0b] border-b border-[#2a2a2c]">
@@ -31,30 +214,28 @@ export default function Navbar({ onMenuToggle }) {
         </div>
 
         {/* Center: Search (Desktop only) */}
-        <div className="hidden md:flex flex-1 max-w-md mx-8">
-          <div className="relative w-full">
-            <input
-              type="text"
-              placeholder="Search documentation..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 pl-10 bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg text-[#e5e5e7] placeholder-[#a0a0a3] focus:outline-none focus:border-[#22c4e0] transition-colors"
-            />
-            <svg
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#a0a0a3]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+        <div className="hidden md:flex flex-1 max-w-md mx-8" ref={searchRef}>
+          <SearchInput
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            handleKeyDown={handleKeyDown}
+            setShowResults={setShowResults}
+            showResults={showResults}
+            searchResults={searchResults}
+            handleResultClick={handleResultClick}
+            selectedIndex={selectedIndex}
+            isMobile={false}
+          />
         </div>
 
         {/* Right: Search Icon (Mobile) + GitHub Link */}
         <div className="flex items-center gap-2">
           {/* Mobile Search Icon */}
-          <button className="md:hidden p-2 text-[#a0a0a3] hover:text-[#22c4e0] transition-colors">
+          <button
+            onClick={toggleMobileSearch}
+            className="md:hidden p-2 text-[#a0a0a3] hover:text-[#22c4e0] transition-colors"
+            aria-label="Toggle search"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -74,6 +255,23 @@ export default function Navbar({ onMenuToggle }) {
           </a>
         </div>
       </div>
+
+      {/* Mobile Search Dropdown */}
+      {showMobileSearch && (
+        <div className="md:hidden border-t border-[#2a2a2c] p-4 bg-[#0a0a0b]">
+          <SearchInput
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            handleKeyDown={handleKeyDown}
+            setShowResults={setShowResults}
+            showResults={showResults}
+            searchResults={searchResults}
+            handleResultClick={handleResultClick}
+            selectedIndex={selectedIndex}
+            isMobile={true}
+          />
+        </div>
+      )}
     </nav>
   );
 }

@@ -10,34 +10,6 @@ export default function GettingStarted() {
       />
 
 
-      {/* Introduction */}
-      <section className="mb-12">
-        <h2 className="text-3xl font-bold mb-2 text-white">What is FeatherAI?</h2>
-        <p className="text-[#a0a0a3] mb-4">
-          FeatherAI is a lightweight Python library that makes it incredibly easy to create, run,
-          orchestrate, and trace AI agents with tool calling and structured output. Built on top of
-          LangChain, it provides a simple, intuitive API that gets you up and running in minutes.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-[#22c4e0] mb-2">⚡ Lightweight</h3>
-            <p className="text-sm text-[#a0a0a3]">Minimal dependencies, maximum performance</p>
-          </div>
-          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-[#be3389] mb-2">🛠️ Tool Calling</h3>
-            <p className="text-sm text-[#a0a0a3]">Easily integrate custom tools with your agents</p>
-          </div>
-          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-[#0357c1] mb-2">📊 Structured Output</h3>
-            <p className="text-sm text-[#a0a0a3]">Get type-safe, validated responses with Pydantic</p>
-          </div>
-          <div className="bg-[#1a1a1c] border border-[#2a2a2c] rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-[#dfa987] mb-2">🎨 Multimodal</h3>
-            <p className="text-sm text-[#a0a0a3]">Support for text, images, PDFs, and more</p>
-          </div>
-        </div>
-      </section>
-
       {/* Installation */}
       <section className="mb-12">
         <h2 className="text-3xl font-bold mb-2 text-white">Installation</h2>
@@ -45,9 +17,39 @@ export default function GettingStarted() {
           Install FeatherAI using pip:
         </p>
         <CodeBlock
-          code="pip install feather-ai"
+          code="pip install feather-ai-sdk"
           language="bash"
         />
+      </section>
+
+      {/* Environment Setup */}
+      <section className="mb-12">
+        <h2 className="text-3xl font-bold mb-2 text-white">Environment Setup</h2>
+        <p className="text-[#a0a0a3] mb-4">
+          Before using FeatherAI, you need to set up API keys for the LLM providers you plan to use.
+          Create a <code className="px-2 py-1 bg-[#2a2a2c] rounded text-[#22c4e0]">.env</code> file in your project root:
+        </p>
+        <CodeBlock
+          code={`# OpenAI (for GPT models)
+OPENAI_API_KEY=your_openai_key_here
+
+# Anthropic (for Claude models)
+ANTHROPIC_API_KEY=your_anthropic_key_here
+
+# Google (for Gemini models)
+GOOGLE_API_KEY=your_google_key_here
+
+# For web search tools (optional)
+TAVILY_API_KEY=your_tavily_key_here`}
+          language="bash"
+          filename=".env"
+        />
+        <div className="bg-[#0357c1]/10 border border-[#0357c1]/30 rounded-lg p-4 mt-4">
+          <p className="text-[#a0a0a3] text-sm">
+            <strong className="text-[#22c4e0]">Note:</strong> You only need to set the API keys for the providers you'll use.
+            For example, if you only use GPT-4, you only need <code className="px-2 py-1 bg-[#2a2a2c] rounded text-[#22c4e0]">OPENAI_API_KEY</code>.
+          </p>
+        </div>
       </section>
 
       {/* Quick Start */}
@@ -58,6 +60,10 @@ export default function GettingStarted() {
         </p>
         <CodeBlock
           code={`from feather_ai import AIAgent
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Create an agent
 agent = AIAgent(model="gpt-4")

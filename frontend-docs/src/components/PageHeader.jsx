@@ -2,7 +2,7 @@ export default function PageHeader({ title, subtitle }) {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-5xl font-bold mb-3 text-white">
+        <h1 className="text-4xl font-bold mb-3 text-white">
           {title}
         </h1>
         <p className="text-xl text-[#a0a0a3]">
