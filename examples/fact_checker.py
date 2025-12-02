@@ -29,7 +29,7 @@ class Research(BaseModel):
 
 # Define the agents
 ocr_agent = AIAgent(
-    model="gemini-2.5-flash-lite",
+    model="gemini-2.5-flash",
     instructions=load_instruction_from_file("./instructions/ocr_instructions.txt")
 )
 fact_checking_agent = AIAgent(

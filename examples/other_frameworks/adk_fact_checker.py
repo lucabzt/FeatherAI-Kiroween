@@ -15,17 +15,17 @@ from dotenv import load_dotenv
 # ADK Imports
 from google.adk.agents import Agent
 from google.adk.tools import google_search
-from google.adk.runtime import AdkApp
+from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.types import ModelMessage, Part, Blob
+from google.genai import types
 
 # Load environment variables
 load_dotenv()
-logging.basicConfig(level=logging.ERROR)  # Reduce noise from ADK internals
+logging.basicConfig(level=logging.ERROR)
 
 # File paths
-real_post: str = "./real_post.png"
-fake_post: str = "./fake_post.png"
+real_post: str = "../real_post.png"
+fake_post: str = "../fake_post.png"
 
 
 # --- 1. Define Structured Output Schema ---
@@ -39,89 +39,194 @@ class Research(BaseModel):
 # --- 2. Define the Agents ---
 
 # OCR Agent: Specialized in reading images
-# We use gemini-1.5-flash for speed and multimodal capabilities
 ocr_agent = Agent(
     name="ocr_agent",
-    model="gemini-1.5-flash",
+    model="gemini-2.0-flash",
     instruction=(
         "You are an OCR expert. Your job is to transcribe and summarize "
         "the text found in social media images accurately."
     )
 )
 
-# Fact Checking Agent: Specialized in research and verification
-# ADK allows passing Pydantic models directly to output_schema
-fact_checking_agent = Agent(
-    name="fact_checking_agent",
-    model="gemini-1.5-pro",
+# Research Agent: Uses tools to verify claims (no output_schema due to ADK constraint)
+research_agent = Agent(
+    name="research_agent",
+    model="gemini-2.0-flash",
     instruction=(
         "You are a professional social media fact checker. "
-        "Verify claims using Google Search. "
-        "You must output your findings in the structured format provided."
+        "You MUST use the Google Search tool to verify claims before responding. "
+        "Search for multiple relevant queries to thoroughly verify the information. "
+        "After searching, provide a detailed analysis including:\n"
+        "1. Whether the claim appears to be fake or legitimate\n"
+        "2. Your reasoning based on the search results\n"
+        "3. List all relevant source URLs you found"
     ),
-    tools=[google_search],
-    output_schema=Research
+    tools=[google_search]
+)
+
+# Formatter Agent: Converts research into structured format (no tools, only output_schema)
+formatter_agent = Agent(
+    name="formatter_agent",
+    model="gemini-2.0-flash",
+    instruction=(
+        "You are a data formatter. Take the fact-checking analysis provided "
+        "and convert it into the exact structured format requested. "
+        "Extract the verdict, reasoning, and source URLs."
+    ),
+    output_schema=Research,
+    output_key="formatted_research"  # Store result in session state
 )
 
 
 # --- 3. Helper Functions ---
 
-def load_image_as_part(image_path: str) -> Part:
+def load_image_as_part(image_path: str) -> types.Part:
     """Reads an image and converts it to an ADK message Part."""
     if not os.path.exists(image_path):
-        # Fallback for demo if file doesn't exist
-        return Part(text="[Image content unavailable: File not found]")
+        return types.Part(text="[Image content unavailable: File not found]")
 
     with open(image_path, "rb") as image_file:
         image_bytes = image_file.read()
 
-    return Part(
-        inline_data=Blob(
+    return types.Part(
+        inline_data=types.Blob(
             mime_type="image/png",
-            data=base64.b64encode(image_bytes).decode('utf-8')
+            data=image_bytes
         )
     )
 
 
-async def check_post(post_path: str) -> Tuple[Research, List[str]]:
-    # Initialize the ADK Runtime (App) with in-memory sessions
-    # ADK uses an 'App' concept to manage state and agent orchestration
-    ocr_app = AdkApp(agent=ocr_agent, session_service=InMemorySessionService())
-    fact_check_app = AdkApp(agent=fact_checking_agent, session_service=InMemorySessionService())
+async def check_post(post_path: str) -> Tuple[Research, int]:
+    # Session service for managing conversation state
+    session_service = InMemorySessionService()
+
+    # App identifiers
+    APP_NAME = "fact_checker"
+    USER_ID = "user_001"
 
     # --- Step 1: OCR ---
-    # Create a session for OCR
-    ocr_session = await ocr_app.create_session()
+    print("Step 1: OCR - Extracting text from image...")
+    ocr_session = await session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id="ocr_session"
+    )
+
+    ocr_runner = Runner(
+        agent=ocr_agent,
+        app_name=APP_NAME,
+        session_service=session_service
+    )
 
     # Prepare multimodal input (Text + Image)
     image_part = load_image_as_part(post_path)
-    ocr_prompt = ModelMessage(parts=[Part(text="Summarize the following post:"), image_part])
-
-    # Run OCR Agent
-    ocr_result = await ocr_app.query(session=ocr_session, message=ocr_prompt)
-    ocr_text = ocr_result.get_text()
-
-    print(f"OCR Agent returned the following: \n {ocr_text} \nFact Checker researching now...")
-
-    # --- Step 2: Fact Checking ---
-    # Create a session for Fact Checking
-    fc_session = await fact_check_app.create_session()
-
-    # Run Fact Check Agent
-    # The agent will use the 'google_search' tool automatically before returning the JSON schema
-    research_result = await fact_check_app.query(
-        session=fc_session,
-        message=f"Verify the validity of this text: {ocr_text}"
+    ocr_content = types.Content(
+        role="user",
+        parts=[types.Part(text="Summarize the following post:"), image_part]
     )
 
-    # ADK automatically parses the output into our Pydantic model if output_schema is set
-    research_data: Research = research_result.get_data()
+    # Run OCR Agent and get response
+    ocr_text = ""
+    async for event in ocr_runner.run_async(
+        user_id=USER_ID,
+        session_id="ocr_session",
+        new_message=ocr_content
+    ):
+        if event.is_final_response():
+            ocr_text = event.content.parts[0].text
 
-    # Extract sources from tool metadata if available, or fall back to the model's list
-    # ADK traces usually contain tool calls in the result metadata
-    tool_calls = research_result.get_tool_calls()
+    print(f"Extracted text: {ocr_text[:100]}...")
 
-    return research_data, tool_calls
+    # --- Step 2: Research with Tools ---
+    print("\nStep 2: Research - Verifying claims with Google Search...")
+    research_session = await session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id="research_session"
+    )
+
+    research_runner = Runner(
+        agent=research_agent,
+        app_name=APP_NAME,
+        session_service=session_service
+    )
+
+    research_content = types.Content(
+        role="user",
+        parts=[types.Part(text=f"Verify the validity of this social media post text: {ocr_text}")]
+    )
+
+    research_text = ""
+    tool_count = 0
+
+    async for event in research_runner.run_async(
+        user_id=USER_ID,
+        session_id="research_session",
+        new_message=research_content
+    ):
+        # Count tool usage using get_function_calls method
+        if hasattr(event, 'get_function_calls'):
+            function_calls = event.get_function_calls()
+            if function_calls:
+                tool_count += len(function_calls)
+                for call in function_calls:
+                    print(f"  → Tool called: {call.name}")
+
+        # Get research findings
+        if event.is_final_response():
+            research_text = event.content.parts[0].text
+
+    print(f"Research complete. Used {tool_count} tool calls.")
+
+    # --- Step 3: Format into Structured Output ---
+    print("\nStep 3: Format - Converting to structured output...")
+    format_session = await session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id="format_session"
+    )
+
+    format_runner = Runner(
+        agent=formatter_agent,
+        app_name=APP_NAME,
+        session_service=session_service
+    )
+
+    format_content = types.Content(
+        role="user",
+        parts=[types.Part(text=f"Format this fact-checking analysis into the structured schema:\n\n{research_text}")]
+    )
+
+    # Run formatter and wait for completion
+    async for event in format_runner.run_async(
+        user_id=USER_ID,
+        session_id="format_session",
+        new_message=format_content
+    ):
+        # Just wait for final response
+        if event.is_final_response():
+            pass
+
+    # Retrieve the structured output from session state
+    updated_session = await session_service.get_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id="format_session"
+    )
+
+    # Access the structured data from state using output_key
+    research_data = None
+    if "formatted_research" in updated_session.state:
+        formatted_data = updated_session.state["formatted_research"]
+        # Parse into Pydantic model
+        if isinstance(formatted_data, dict):
+            research_data = Research(**formatted_data)
+        else:
+            # If it's a JSON string, parse it
+            import json
+            research_data = Research(**json.loads(formatted_data))
+
+    return research_data, tool_count
 
 
 async def run_and_print_fact_checker(post: str):
@@ -134,19 +239,23 @@ async def run_and_print_fact_checker(post: str):
     print("-" * 80)
 
     try:
-        result, tools = await check_post(post)
+        result, tool_count = await check_post(post)
 
-        print(f"\n✓ Analysis Complete\n")
-        print(f"Verdict: {'❌❌ FAKE NEWS' if result.fake_news else '✅✅ LEGITIMATE'}")
-        print(f"\nReasoning:\n{result.reasoning}")
-        print(f"\nRelevant Sources ({len(result.relevant_sources)}):")
-        for i, source in enumerate(result.relevant_sources, 1):
-            print(f"  {i}. {source}")
-
-        print(f"\nTools Used: {len(tools)} tool interactions")
+        if result:
+            print(f"\n✓ Analysis Complete\n")
+            print(f"Verdict: {'❌❌ FAKE NEWS' if result.fake_news else '✅✅ LEGITIMATE'}")
+            print(f"\nReasoning:\n{result.reasoning}")
+            print(f"\nRelevant Sources ({len(result.relevant_sources)}):")
+            for i, source in enumerate(result.relevant_sources, 1):
+                print(f"  {i}. {source}")
+            print(f"\nTools Used: {tool_count} tool interactions")
+        else:
+            print("\n❌ No structured result received")
 
     except Exception as e:
         print(f"\n❌ An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
 
     print("\n" + "=" * 80)
     print("Analysis complete")
@@ -158,6 +267,5 @@ if __name__ == "__main__":
     async def main():
         await run_and_print_fact_checker(real_post)
         await run_and_print_fact_checker(fake_post)
-
 
     asyncio.run(main())

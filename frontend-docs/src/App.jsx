@@ -14,7 +14,7 @@ import FeaturedProjects from './pages/FeaturedProjects';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/FeatherAI-Kiroween">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<GettingStarted />} />

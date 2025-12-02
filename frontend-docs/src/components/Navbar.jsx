@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { searchDocs } from '../utils/search';
 
 // SearchInput component moved outside to prevent recreation on each render
@@ -201,7 +201,7 @@ export default function Navbar({ onMenuToggle }) {
             </svg>
           </button>
 
-          <a href="/" className="flex items-center gap-3 pl-4">
+          <Link to="/" className="flex items-center gap-3 pl-4">
             <img
               src="/feather-ai-logo.svg"
               alt="FeatherAI Logo"
@@ -210,7 +210,7 @@ export default function Navbar({ onMenuToggle }) {
             <span className="text-2xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
               FeatherAI
             </span>
-          </a>
+          </Link>
         </div>
 
         {/* Center: Search (Desktop only) */}
