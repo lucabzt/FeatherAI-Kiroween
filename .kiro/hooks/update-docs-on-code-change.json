@@ -1,0 +1,13 @@
+{
+  "name": "Update Frontend Docs on Code Changes",
+  "description": "Automatically updates frontend documentation when core Python files are modified",
+  "enabled": true,
+  "trigger": {
+    "type": "onFileSave",
+    "filePattern": "FeatherAI/src/feather_ai/{agent,document,prompt,utils}.py"
+  },
+  "action": {
+    "type": "sendMessage",
+    "message": "The file ${filePath} has been saved with changes. Please review the changes in this file and update the frontend documentation in the frontend-docs directory to reflect any API changes, new features, or modified behavior. Focus on:\n\n1. API Reference pages - update function signatures, parameters, and return types\n2. Getting Started guide - update if there are new initialization patterns or basic usage changes\n3. Examples - update code examples if the API has changed\n4. Feature documentation - add or update documentation for new or modified features\n\nMake sure the documentation follows the frontend style guide and maintains consistency with existing content."
+  }
+}
